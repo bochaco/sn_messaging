@@ -10,20 +10,20 @@
 use super::{AuthorisationKind, CmdError, DataAuthKind, Error, QueryResponse};
 use serde::{Deserialize, Serialize};
 use sn_data_types::{
-    PublicKey, Sequence, SequenceAddress as Address, SequenceEntry as Entry,
-    SequenceIndex as Index, SequenceOp, SequenceUser as User,
+    PublicKey, Register, RegisterAddress as Address, RegisterEntry as Entry,
+    RegisterIndex as Index, RegisterOp, RegisterUser as User,
 };
 use std::fmt;
 use xor_name::XorName;
 
 /// TODO: docs
 #[derive(Hash, Eq, PartialEq, PartialOrd, Clone, Serialize, Deserialize)]
-pub enum SequenceRead {
-    /// Get Sequence from the network.
+pub enum RegisterRead {
+    /// Get Register from the network.
     Get(Address),
-    /// Get a range of entries from an Sequence object on the network.
+    /// Get a range of entries from an Register object on the network.
     GetRange {
-        /// Sequence address.
+        /// Register address.
         address: Address,
         /// Range of entries to fetch.
         ///
@@ -37,7 +37,7 @@ pub enum SequenceRead {
         /// range: (Index::FromStart(0), Index::FromStart(5))
         range: (Index, Index),
     },
-    /// Get last entry from the Sequence.
+    /// Get last entry from the Register.
     GetLastEntry(Address),
     /// List current policy
     GetPublicPolicy(Address),
@@ -45,7 +45,7 @@ pub enum SequenceRead {
     GetPrivatePolicy(Address),
     /// Get current permissions for a specified user(s).
     GetUserPermissions {
-        /// Sequence address.
+        /// Register address.
         address: Address,
         /// User to get permissions for.
         user: User,
@@ -57,37 +57,37 @@ pub enum SequenceRead {
 /// TODO: docs
 #[allow(clippy::large_enum_variant)]
 #[derive(Eq, PartialEq, Clone, Serialize, Deserialize)]
-pub enum SequenceWrite {
-    /// Create a new Sequence on the network.
-    New(Sequence),
-    /// Edit the Sequence (insert/remove entry).
-    Edit(SequenceOp<Entry>),
-    /// Delete a private Sequence.
+pub enum RegisterWrite {
+    /// Create a new Register on the network.
+    New(Register),
+    /// Edit the Register (insert/remove entry).
+    Edit(RegisterOp<Entry>),
+    /// Delete a private Register.
     ///
-    /// This operation MUST return an error if applied to public Sequence. Only the current
+    /// This operation MUST return an error if applied to public Register. Only the current
     /// owner(s) can perform this action.
     Delete(Address),
 }
 
-impl SequenceRead {
+impl RegisterRead {
     /// Creates a Response containing an error, with the Response variant corresponding to the
     /// Request variant.
     pub fn error(&self, error: Error) -> QueryResponse {
-        use SequenceRead::*;
+        use RegisterRead::*;
         match *self {
-            Get(_) => QueryResponse::GetSequence(Err(error)),
-            GetRange { .. } => QueryResponse::GetSequenceRange(Err(error)),
-            GetLastEntry(_) => QueryResponse::GetSequenceLastEntry(Err(error)),
-            GetPublicPolicy(_) => QueryResponse::GetSequencePublicPolicy(Err(error)),
-            GetPrivatePolicy(_) => QueryResponse::GetSequencePrivatePolicy(Err(error)),
-            GetUserPermissions { .. } => QueryResponse::GetSequenceUserPermissions(Err(error)),
-            GetOwner(_) => QueryResponse::GetSequenceOwner(Err(error)),
+            Get(_) => QueryResponse::GetRegister(Err(error)),
+            GetRange { .. } => QueryResponse::GetRegisterRange(Err(error)),
+            GetLastEntry(_) => QueryResponse::GetRegisterLastEntry(Err(error)),
+            GetPublicPolicy(_) => QueryResponse::GetRegisterPublicPolicy(Err(error)),
+            GetPrivatePolicy(_) => QueryResponse::GetRegisterPrivatePolicy(Err(error)),
+            GetUserPermissions { .. } => QueryResponse::GetRegisterUserPermissions(Err(error)),
+            GetOwner(_) => QueryResponse::GetRegisterOwner(Err(error)),
         }
     }
 
     /// Returns the access categorisation of the request.
     pub fn authorisation_kind(&self) -> AuthorisationKind {
-        use SequenceRead::*;
+        use RegisterRead::*;
         match *self {
             Get(address)
             | GetRange { address, .. }
@@ -107,7 +107,7 @@ impl SequenceRead {
 
     /// Returns the address of the destination for request.
     pub fn dst_address(&self) -> XorName {
-        use SequenceRead::*;
+        use RegisterRead::*;
         match self {
             Get(ref address)
             | GetRange { ref address, .. }
@@ -120,18 +120,18 @@ impl SequenceRead {
     }
 }
 
-impl fmt::Debug for SequenceRead {
+impl fmt::Debug for RegisterRead {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        use SequenceRead::*;
+        use RegisterRead::*;
         write!(
             formatter,
-            "SequenceRead::{}",
+            "RegisterRead::{}",
             match *self {
-                Get(_) => "GetSequence",
-                GetRange { .. } => "GetSequenceRange",
-                GetLastEntry(_) => "GetSequenceLastEntry",
-                GetPublicPolicy { .. } => "GetSequencePublicPolicy",
-                GetPrivatePolicy { .. } => "GetSequencePrivatePolicy",
+                Get(_) => "GetRegister",
+                GetRange { .. } => "GetRegisterRange",
+                GetLastEntry(_) => "GetRegisterLastEntry",
+                GetPublicPolicy { .. } => "GetRegisterPublicPolicy",
+                GetPrivatePolicy { .. } => "GetRegisterPrivatePolicy",
                 GetUserPermissions { .. } => "GetUserPermissions",
                 GetOwner { .. } => "GetOwner",
             }
@@ -139,7 +139,7 @@ impl fmt::Debug for SequenceRead {
     }
 }
 
-impl SequenceWrite {
+impl RegisterWrite {
     /// Creates a Response containing an error, with the Response variant corresponding to the
     /// Request variant.
     pub fn error(&self, error: Error) -> CmdError {
@@ -153,7 +153,7 @@ impl SequenceWrite {
 
     /// Returns the address of the destination for request.
     pub fn dst_address(&self) -> XorName {
-        use SequenceWrite::*;
+        use RegisterWrite::*;
         match self {
             New(ref data) => *data.name(),
             Delete(ref address) => *address.name(),
@@ -161,7 +161,7 @@ impl SequenceWrite {
         }
     }
 
-    /// Owner of the SequenceWrite
+    /// Owner of the RegisterWrite
     pub fn owner(&self) -> Option<PublicKey> {
         match self {
             Self::New(data) => Some(data.owner()),
@@ -170,16 +170,16 @@ impl SequenceWrite {
     }
 }
 
-impl fmt::Debug for SequenceWrite {
+impl fmt::Debug for RegisterWrite {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        use SequenceWrite::*;
+        use RegisterWrite::*;
         write!(
             formatter,
-            "SequenceWrite::{}",
+            "RegisterWrite::{}",
             match *self {
-                New(_) => "NewSequence",
-                Delete(_) => "DeleteSequence",
-                Edit(_) => "EditSequence",
+                New(_) => "NewRegister",
+                Delete(_) => "DeleteRegister",
+                Edit(_) => "EditRegister",
             }
         )
     }

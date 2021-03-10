@@ -15,8 +15,8 @@ mod errors;
 mod map;
 mod network;
 mod query;
+mod register;
 mod sender;
-mod sequence;
 mod transfer;
 
 pub use self::{
@@ -33,8 +33,8 @@ pub use self::{
         NodeTransferQueryResponse,
     },
     query::Query,
+    register::{RegisterRead, RegisterWrite},
     sender::{Address, MsgSender, TransientElderKey, TransientSectionKey},
-    sequence::{SequenceRead, SequenceWrite},
     transfer::{TransferCmd, TransferQuery},
 };
 
@@ -43,8 +43,8 @@ use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use sn_data_types::{
     ActorHistory, Blob, Map, MapEntries, MapPermissionSet, MapValue, MapValues, PublicKey,
-    ReplicaPublicKeySet, Sequence, SequenceEntries, SequenceEntry, SequencePermissions,
-    SequencePrivatePolicy, SequencePublicPolicy, Token, TransferAgreementProof, TransferValidated,
+    Register, RegisterEntries, RegisterEntry, RegisterPermissions, RegisterPrivatePolicy,
+    RegisterPublicPolicy, ReplicaPublicKeySet, Token, TransferAgreementProof, TransferValidated,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -320,22 +320,22 @@ pub enum QueryResponse {
     /// Get Map value.
     GetMapValue(Result<MapValue>),
     //
-    // ===== Sequence Data =====
+    // ===== Register Data =====
     //
-    /// Get Sequence.
-    GetSequence(Result<Sequence>),
-    /// Get Sequence owners.
-    GetSequenceOwner(Result<PublicKey>),
-    /// Get Sequence entries from a range.
-    GetSequenceRange(Result<SequenceEntries>),
-    /// Get Sequence last entry.
-    GetSequenceLastEntry(Result<(u64, SequenceEntry)>),
-    /// Get public Sequence permissions for a user.
-    GetSequencePublicPolicy(Result<SequencePublicPolicy>),
-    /// Get private Sequence permissions for a user.
-    GetSequencePrivatePolicy(Result<SequencePrivatePolicy>),
-    /// Get Sequence permissions for a user.
-    GetSequenceUserPermissions(Result<SequencePermissions>),
+    /// Get Register.
+    GetRegister(Result<Register>),
+    /// Get Register owners.
+    GetRegisterOwner(Result<PublicKey>),
+    /// Get Register entries from a range.
+    GetRegisterRange(Result<RegisterEntries>),
+    /// Get Register last entry.
+    GetRegisterLastEntry(Result<(u64, RegisterEntry)>),
+    /// Get public Register permissions for a user.
+    GetRegisterPublicPolicy(Result<RegisterPublicPolicy>),
+    /// Get private Register permissions for a user.
+    GetRegisterPrivatePolicy(Result<RegisterPrivatePolicy>),
+    /// Get Register permissions for a user.
+    GetRegisterUserPermissions(Result<RegisterPermissions>),
     //
     // ===== Tokens =====
     //
@@ -428,13 +428,13 @@ try_from!(MapValues, ListMapValues);
 try_from!(MapPermissionSet, ListMapUserPermissions);
 try_from!(BTreeMap<PublicKey, MapPermissionSet>, ListMapPermissions);
 try_from!(MapValue, GetMapValue);
-try_from!(Sequence, GetSequence);
-try_from!(PublicKey, GetSequenceOwner);
-try_from!(SequenceEntries, GetSequenceRange);
-try_from!((u64, SequenceEntry), GetSequenceLastEntry);
-try_from!(SequencePublicPolicy, GetSequencePublicPolicy);
-try_from!(SequencePrivatePolicy, GetSequencePrivatePolicy);
-try_from!(SequencePermissions, GetSequenceUserPermissions);
+try_from!(Register, GetRegister);
+try_from!(PublicKey, GetRegisterOwner);
+try_from!(RegisterEntries, GetRegisterRange);
+try_from!((u64, RegisterEntry), GetRegisterLastEntry);
+try_from!(RegisterPublicPolicy, GetRegisterPublicPolicy);
+try_from!(RegisterPrivatePolicy, GetRegisterPrivatePolicy);
+try_from!(RegisterPermissions, GetRegisterUserPermissions);
 try_from!(Token, GetBalance);
 try_from!(ReplicaPublicKeySet, GetReplicaKeys);
 try_from!(ActorHistory, GetHistory);
@@ -466,33 +466,33 @@ impl fmt::Debug for QueryResponse {
                 ErrorDebug(res)
             ),
             GetMapValue(res) => write!(f, "QueryResponse::GetMapValue({:?})", ErrorDebug(res)),
-            // Sequence
-            GetSequence(res) => write!(f, "QueryResponse::GetSequence({:?})", ErrorDebug(res)),
-            GetSequenceRange(res) => {
-                write!(f, "QueryResponse::GetSequenceRange({:?})", ErrorDebug(res))
+            // Register
+            GetRegister(res) => write!(f, "QueryResponse::GetRegister({:?})", ErrorDebug(res)),
+            GetRegisterRange(res) => {
+                write!(f, "QueryResponse::GetRegisterRange({:?})", ErrorDebug(res))
             }
-            GetSequenceLastEntry(res) => write!(
+            GetRegisterLastEntry(res) => write!(
                 f,
-                "QueryResponse::GetSequenceLastEntry({:?})",
+                "QueryResponse::GetRegisterLastEntry({:?})",
                 ErrorDebug(res)
             ),
-            GetSequenceUserPermissions(res) => write!(
+            GetRegisterUserPermissions(res) => write!(
                 f,
-                "QueryResponse::GetSequenceUserPermissions({:?})",
+                "QueryResponse::GetRegisterUserPermissions({:?})",
                 ErrorDebug(res)
             ),
-            GetSequencePublicPolicy(res) => write!(
+            GetRegisterPublicPolicy(res) => write!(
                 f,
-                "QueryResponse::GetSequencePublicPolicy({:?})",
+                "QueryResponse::GetRegisterPublicPolicy({:?})",
                 ErrorDebug(res)
             ),
-            GetSequencePrivatePolicy(res) => write!(
+            GetRegisterPrivatePolicy(res) => write!(
                 f,
-                "QueryResponse::GetSequencePrivatePolicy({:?})",
+                "QueryResponse::GetRegisterPrivatePolicy({:?})",
                 ErrorDebug(res)
             ),
-            GetSequenceOwner(res) => {
-                write!(f, "QueryResponse::GetSequenceOwner({:?})", ErrorDebug(res))
+            GetRegisterOwner(res) => {
+                write!(f, "QueryResponse::GetRegisterOwner({:?})", ErrorDebug(res))
             }
             // Tokens
             GetReplicaKeys(res) => {
@@ -532,9 +532,9 @@ mod tests {
     #[test]
     fn debug_format() -> Result<()> {
         if let Some(key) = gen_keys().first() {
-            let errored_response = QueryResponse::GetSequence(Err(Error::AccessDenied(*key)));
+            let errored_response = QueryResponse::GetRegister(Err(Error::AccessDenied(*key)));
             assert!(format!("{:?}", errored_response)
-                .contains("QueryResponse::GetSequence(AccessDenied(PublicKey::"));
+                .contains("QueryResponse::GetRegister(AccessDenied(PublicKey::"));
             Ok(())
         } else {
             Err(anyhow!("Could not generate public key"))
