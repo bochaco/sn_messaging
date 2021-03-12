@@ -14,6 +14,7 @@ use cookie_factory::{
     gen,
 };
 use std::{convert::TryFrom, fmt::Debug, mem::size_of};
+use sn_data_types::PublicKey;
 
 // Current version of the messaging protocol.
 // At this point this implementation supports only this version.
@@ -26,6 +27,7 @@ pub(crate) struct WireMsgHeader {
     header_size: u16,
     version: u16,
     kind: MessageKind,
+    dest_pk: PublicKey
 }
 
 // Bytes length in the header for the 'header_size' field
@@ -39,18 +41,29 @@ const HDR_VERSION_BYTES_LEN: usize = size_of::<u16>();
 // Bytes index in the header for the 'kind' field
 const HDR_KIND_BYTES_START: usize = 4;
 
+// Bytes index in the header for the 'dest_pk' field
+const HDR_DEST_PK_BYTES_START: usize = 5;
+const HDR_DEST_PK_BYTES_LEN: usize = size_of::<PublicKey>();
+
 impl WireMsgHeader {
     // Instantiate a WireMsgHeader as per current supported version.
-    pub fn new(kind: MessageKind) -> Self {
+    pub fn new(kind: MessageKind,dest_pk: PublicKey) -> Self {
         Self {
             header_size: Self::size() as u16,
             version: MESSAGING_PROTO_VERSION,
             kind,
+            dest_pk
         }
     }
 
+    // Return the kind of this message
     pub fn kind(&self) -> MessageKind {
         self.kind
+    }
+
+    // Return the destination section PublicKey for this message
+    pub fn dest_pk(&self) -> PublicKey {
+        self.dest_pk
     }
 
     // Parses the provided bytes to deserialize a WireMsgHeader,
@@ -86,10 +99,14 @@ impl WireMsgHeader {
         // ...and finally let's read the message kind value (only 1 byte)
         let kind = MessageKind::try_from(bytes[HDR_KIND_BYTES_START])?;
 
+        // FIXME: parse public key
+        let dest_pk = PublicKey::default();
+
         let header = Self {
             header_size,
             version,
             kind,
+            dest_pk
         };
 
         // Get a slice for the payload bytes, i.e. the bytes after the header bytes
@@ -117,7 +134,7 @@ impl WireMsgHeader {
                 ))
             })?;
 
-        // ...and finally, let's write the value signaling the message kind
+        // ...now let's write the value signaling the message kind
         let (buf_at_payload, _) =
             gen(be_u8(self.kind.into()), &mut buf_at_msg_kind[..]).map_err(|err| {
                 Error::Serialisation(format!(
@@ -125,6 +142,9 @@ impl WireMsgHeader {
                     err
                 ))
             })?;
+
+        // ...finally let's write the destination section public key
+        // FIXME: self.dest_pk
 
         Ok(buf_at_payload)
     }
@@ -134,8 +154,7 @@ impl WireMsgHeader {
         // We don't use 'std::mem::size_of' since for the
         // 'MessageKind' enum it reports 2 bytes mem size,
         // and we want to serialize that field using 1 byte only.
-        // HDR_SIZE_BYTES_LEN + HDR_VERSION_BYTES_LEN + 1 == 5
-        5
+        HDR_SIZE_BYTES_LEN + HDR_VERSION_BYTES_LEN + /* kind size */ 1 + HDR_DEST_PK_BYTES_LEN // == 38 bytes
     }
 }
 

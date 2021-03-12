@@ -16,6 +16,7 @@ use super::{client, section_info, Error, MessageType, Result};
 use bytes::Bytes;
 use cookie_factory::{combinator::slice, gen};
 use std::fmt::Debug;
+use sn_data_types::PublicKey;
 
 // In order to send a message over the wire, it needs to be serialized
 // along with a header (WireMsgHeader) which contains the information needed
@@ -29,15 +30,15 @@ pub struct WireMsg {
 
 impl WireMsg {
     /// Creates a new instance of a 'Ping' message.
-    pub fn new_ping_msg() -> WireMsg {
+    pub fn new_ping_msg(dest_pk: PublicKey) -> Self {
         Self {
-            header: WireMsgHeader::new(MessageKind::Ping),
+            header: WireMsgHeader::new(MessageKind::Ping, dest_pk),
             payload: Bytes::new(),
         }
     }
 
     /// Creates a new instance keeping a (serialized) copy of the 'SectionInfo' message provided.
-    pub fn new_sectioninfo_msg(query: &section_info::Message) -> Result<WireMsg> {
+    pub fn new_sectioninfo_msg(query: &section_info::Message, dest_pk: PublicKey) -> Result<Self> {
         let payload_vec = rmp_serde::to_vec_named(&query).map_err(|err| {
             Error::Serialisation(format!(
                 "could not serialize network info payload with Msgpack: {}",
@@ -46,13 +47,13 @@ impl WireMsg {
         })?;
 
         Ok(Self {
-            header: WireMsgHeader::new(MessageKind::SectionInfo),
+            header: WireMsgHeader::new(MessageKind::SectionInfo, dest_pk),
             payload: Bytes::from(payload_vec),
         })
     }
 
     /// Creates a new instance keeping a (serialized) copy of the client 'Message' message provided.
-    pub fn new_client_msg(msg: &client::Message) -> Result<WireMsg> {
+    pub fn new_client_msg(msg: &client::Message,dest_pk: PublicKey) -> Result<Self> {
         let payload_vec = rmp_serde::to_vec_named(&msg).map_err(|err| {
             Error::Serialisation(format!(
                 "could not serialize client message payload (id: {}) with Msgpack: {}",
@@ -62,14 +63,14 @@ impl WireMsg {
         })?;
 
         Ok(Self {
-            header: WireMsgHeader::new(MessageKind::ClientMessage),
+            header: WireMsgHeader::new(MessageKind::ClientMessage, dest_pk),
             payload: Bytes::from(payload_vec),
         })
     }
 
     /// Creates a new instance keeping a (serialized) copy of the node 'Message' message provided.
     #[cfg(not(feature = "client-only"))]
-    pub fn new_node_msg(msg: &node::NodeMessage) -> Result<WireMsg> {
+    pub fn new_node_msg(msg: &node::NodeMessage,dest_pk: PublicKey) -> Result<Self> {
         let payload_vec = rmp_serde::to_vec_named(&msg).map_err(|err| {
             Error::Serialisation(format!(
                 "could not serialize node message payload with Msgpack: {}",
@@ -150,6 +151,11 @@ impl WireMsg {
         }
     }
 
+    /// Return the destination section PublicKey for this message
+    pub fn dest_pk(&self) -> PublicKey {
+        self.header.dest_pk()
+    }
+    
     // The following functions are just for convenience, which allow users to
     // not needing to create an instance of WireMsg beforehand.
 
